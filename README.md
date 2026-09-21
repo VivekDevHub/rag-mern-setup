@@ -1,0 +1,1 @@
+sabse pehle pdf data ko text me convert krenge pdf parse library ki help se pdf ko text me krenge
