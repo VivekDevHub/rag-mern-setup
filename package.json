@@ -9,5 +9,13 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@langchain/core": "^1.2.12",
+    "@langchain/mistralai": "^1.2.0",
+    "@langchain/textsplitters": "^1.0.1",
+    "dotenv": "^18.0.1",
+    "langchain": "^1.5.11",
+    "pdf-parse": "^2.4.5"
+  }
 }
