@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RAG — Retrieval Augmented Generation | Vivek Dev Hub</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080C16;
+  --panel:#101A30;
+  --panel2:#0C1526;
+  --ink:#EAEFF7;
+  --muted:#8697B4;
+  --line:rgba(233,238,246,0.10);
+  --chunk:#FBBF24;
+  --embed:#38BDF8;
+  --vector:#A78BFA;
+  --retrieve:#34D399;
+  --gen:#FB7185;
+  --accent:#38BDF8;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:#000;height:100%;overflow:hidden;}
+body{
+  font-family:'Inter',sans-serif;
+  color:var(--ink);
+  display:flex;align-items:center;justify-content:center;
+  height:100vh;width:100vw;
+}
+#viewport{
+  width:1280px;height:720px;
+  transform-origin:center center;
+  position:relative;
+  background:var(--bg);
+  overflow:hidden;
+  border-radius:6px;
+  box-shadow:0 40px 120px rgba(0,0,0,0.6);
+}
+/* faint blueprint grid texture */
+#viewport::before{
+  content:"";
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(56,189,248,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56,189,248,0.05) 1px, transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;
+}
+.slide{
+  position:absolute;inset:0;
+  padding:64px 76px 90px 76px;
+  display:none;
+  flex-direction:column;
+  opacity:0;
+  transition:opacity .45s ease;
+}
+.slide.active{display:flex;opacity:1;}
+h1,h2,h3{font-family:'Space Grotesk',sans-serif;margin:0;letter-spacing:-0.01em;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+.slide-title{font-size:40px;font-weight:700;color:var(--ink);line-height:1.15;}
+.slide-sub{font-size:17px;color:var(--muted);margin-top:10px;max-width:820px;line-height:1.5;font-weight:400;}
+.tag{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--accent);
+  margin-bottom:14px;
+}
+.tag .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+.content{flex:1;display:flex;flex-direction:column;justify-content:center;margin-top:18px;}
+
+/* ---- fragment reveal ---- */
+.fragment{opacity:0;transform:translateY(14px) scale(0.98);transition:opacity .5s ease, transform .5s cubic-bezier(.2,.7,.3,1);}
+.fragment.visible{opacity:1;transform:translateY(0) scale(1);}
+
+/* ---- generic card grid ---- */
+.grid{display:grid;gap:16px;}
+.grid.cols-2{grid-template-columns:1fr 1fr;}
+.grid.cols-3{grid-template-columns:1fr 1fr 1fr;}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:20px 22px;position:relative;overflow:hidden;
+}
+.card .k{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:17px;margin-bottom:6px;}
+.card .d{font-size:13.5px;color:var(--muted);line-height:1.5;}
+.card .num{
+  position:absolute;top:14px;right:16px;font-family:'IBM Plex Mono',monospace;
+  font-size:12px;color:var(--muted);opacity:.6;
+}
+
+/* ---- pipeline node/flow diagram ---- */
+.flow{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;}
+.flow.vertical{flex-direction:column;}
+.node{
+  background:var(--panel);border:1.5px solid var(--line);border-radius:12px;
+  padding:16px 20px;min-width:150px;text-align:center;
+  box-shadow:0 8px 24px rgba(0,0,0,0.25);
+}
+.node .nl{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;}
+.node .ns{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:4px;}
+.node.glow{box-shadow:0 0 0 1px currentColor, 0 8px 30px rgba(0,0,0,.35), 0 0 24px -4px currentColor;}
+.arrow{
+  font-size:22px;color:var(--accent);margin:0 10px;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+}
+.flow.vertical .arrow{margin:2px 0;}
+
+/* colored node variants */
+.node.c-chunk{color:var(--chunk);border-color:var(--chunk);}
+.node.c-embed{color:var(--embed);border-color:var(--embed);}
+.node.c-vector{color:var(--vector);border-color:var(--vector);}
+.node.c-retrieve{color:var(--retrieve);border-color:var(--retrieve);}
+.node.c-gen{color:var(--gen);border-color:var(--gen);}
+.node.c-chunk .nl{color:var(--chunk);}
+.node.c-embed .nl{color:var(--embed);}
+.node.c-vector .nl{color:var(--vector);}
+.node.c-retrieve .nl{color:var(--retrieve);}
+.node.c-gen .nl{color:var(--gen);}
+.arrow.c-chunk{color:var(--chunk);}
+.arrow.c-embed{color:var(--embed);}
+.arrow.c-vector{color:var(--vector);}
+.arrow.c-retrieve{color:var(--retrieve);}
+.arrow.c-gen{color:var(--gen);}
+
+/* ---- misc components ---- */
+.pill{
+  display:inline-block;padding:5px 12px;border-radius:20px;
+  font-family:'IBM Plex Mono',monospace;font-size:12px;
+  border:1px solid var(--line);color:var(--muted);
+}
+.quote-box{
+  background:var(--panel);border-left:4px solid var(--accent);border-radius:8px;
+  padding:26px 30px;font-size:19px;line-height:1.6;color:var(--ink);
+  font-family:'Space Grotesk',sans-serif;font-weight:500;
+}
+.vec-array{
+  font-family:'IBM Plex Mono',monospace;font-size:15px;color:var(--embed);
+  background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+  padding:10px 16px;display:inline-block;
+}
+.check-row{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;}
+.check-row .c{
+  width:24px;height:24px;border-radius:50%;background:var(--retrieve);
+  color:#062018;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;
+}
+.check-row .t{font-size:15.5px;color:var(--ink);padding-top:2px;}
+.two-col{display:flex;gap:28px;align-items:stretch;}
+.two-col > div{flex:1;}
+.panel-block{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px 24px;}
+.big-word{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:26px;}
+
+/* ---- footer / nav ---- */
+#chrome{
+  position:absolute;left:0;right:0;bottom:0;height:56px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);
+  border-top:1px solid var(--line);
+}
+#dots{display:flex;gap:6px;}
+#dots span{width:6px;height:6px;border-radius:50%;background:var(--line);}
+#dots span.on{background:var(--accent);}
+.navbtn{
+  background:var(--panel);border:1px solid var(--line);color:var(--ink);
+  font-family:'Inter',sans-serif;font-size:13px;padding:8px 16px;border-radius:8px;cursor:pointer;
+}
+.navbtn:hover{border-color:var(--accent);}
+.brand{color:var(--muted);}
+.click-hint{
+  position:absolute;bottom:64px;right:76px;font-size:11.5px;color:var(--muted);
+  font-family:'IBM Plex Mono',monospace;opacity:.55;
+}
+</style>
+</head>
+<body>
+<div id="viewport">
+  <div id="slides"></div>
+  <div class="click-hint">click / → to continue</div>
+  <div id="chrome">
+    <div class="brand">VIVEK DEV HUB · RAG</div>
+    <div id="dots"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="navbtn" id="prevBtn">◂ Prev</button>
+      <button class="navbtn" id="nextBtn">Next ▸</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// SLIDE CONTENT
+// ============================================================
+const slides = [];
+
+// ---- 1. Title ----
+slides.push(`
+<div class="content" style="justify-content:center;">
+  <div class="tag"><span class="dot"></span>VIVEK DEV HUB</div>
+  <h1 style="font-size:78px;">RAG</h1>
+  <h2 style="font-size:30px;color:var(--muted);font-weight:500;margin-top:6px;">Retrieval&nbsp;Augmented&nbsp;Generation</h2>
+  <p class="slide-sub fragment" style="margin-top:26px;font-size:18px;">The one concept that explains how ChatGPT, Claude and Gemini answer questions about things they were never trained on.</p>
+  <div class="fragment" style="margin-top:34px;display:flex;gap:10px;">
+    <span class="pill">Chunking</span><span class="pill">Embeddings</span><span class="pill">Vector DB</span><span class="pill">Retrieval</span><span class="pill">Generation</span>
+  </div>
+</div>
+`);
+
+// ---- 2. Burning questions ----
+slides.push(`
+<div class="tag"><span class="dot"></span>WHAT WE'LL ANSWER TODAY</div>
+<h1 class="slide-title">RAG actually hota kya hai?</h1>
+<div class="content">
+  <div class="check-row fragment"><div class="c">?</div><div class="t">LLM ko RAG ki zarurat kyun padti hai?</div></div>
+  <div class="check-row fragment"><div class="c">?</div><div class="t">Chunking, Embedding aur Vector Database kya hote hain?</div></div>
+  <div class="check-row fragment"><div class="c">?</div><div class="t">User ki query se final answer tak — exactly kya process hota hai?</div></div>
+  <div class="check-row fragment"><div class="c">?</div><div class="t">RAG ka complete architecture kaise kaam karta hai?</div></div>
+</div>
+`);
+
+// ---- 3. What is an LLM ----
+slides.push(`
+<div class="tag"><span class="dot"></span>FIRST, THE BASICS</div>
+<h1 class="slide-title">An LLM answers from what it already learned</h1>
+<p class="slide-sub">Training ke through model ke paas bahut large amount of knowledge hoti hai — aur usi ke basis par wo response generate karta hai.</p>
+<div class="content">
+  <div class="flow">
+    <div class="node fragment"><div class="nl">Prompt</div><div class="ns">"What is a deadlock?"</div></div>
+    <div class="arrow fragment">→</div>
+    <div class="node fragment glow" style="color:var(--accent);border-color:var(--accent);"><div class="nl">LLM</div><div class="ns">pre-trained knowledge</div></div>
+    <div class="arrow fragment">→</div>
+    <div class="node fragment"><div class="nl">Response</div><div class="ns">generated from memory</div></div>
+  </div>
+</div>
+`);
+
+// ---- 4. The problem ----
+slides.push(`
+<div class="tag" style="color:var(--gen);"><span class="dot" style="background:var(--gen);"></span>WHERE IT BREAKS</div>
+<h1 class="slide-title">But what if the answer isn't in its memory?</h1>
+<div class="content" style="gap:16px;">
+  <div class="panel-block fragment">
+    <div class="mono" style="font-size:12.5px;color:var(--retrieve);margin-bottom:8px;">QUESTION 1 — general knowledge</div>
+    <div style="font-size:17px;">"What is a deadlock in Operating Systems?"</div>
+    <div style="margin-top:10px;color:var(--retrieve);font-size:13.5px;">✓ Answered confidently — it's in the training data.</div>
+  </div>
+  <div class="panel-block fragment" style="border:1px solid var(--gen);">
+    <div class="mono" style="font-size:12.5px;color:var(--gen);margin-bottom:8px;">QUESTION 2 — private / specific source</div>
+    <div style="font-size:17px;">"Vivek Sir ne apni video mein deadlock ka jo exact example diya tha, woh batao."</div>
+    <div style="margin-top:10px;color:var(--gen);font-size:13.5px;">✕ Model ke paas ye specific source data nahi hai — it may hallucinate.</div>
+  </div>
+</div>
+`);
+
+// ---- 5. Why traditional LLMs fall short ----
+slides.push(`
+<div class="tag"><span class="dot"></span>THE LIMITATION</div>
+<h1 class="slide-title">A model's knowledge is frozen at training time</h1>
+<div class="content">
+  <div class="grid cols-2">
+    <div class="card fragment"><div class="k">Fixed training data</div><div class="d">Sirf wahi jaanta hai jo training ke time diya gaya tha.</div></div>
+    <div class="card fragment"><div class="k">No private documents</div><div class="d">Company PDFs, policies, internal wikis — automatically available nahi hote.</div></div>
+    <div class="card fragment"><div class="k">No live updates</div><div class="d">Naya ya changing information ke liye external access chahiye.</div></div>
+    <div class="card fragment"><div class="k">Retraining is expensive</div><div class="d">Har naye document ke liye poore model ko retrain karna practical nahi.</div></div>
+  </div>
+</div>
+`);
+
+// ---- 6. What is RAG ----
+slides.push(`
+<div class="tag"><span class="dot"></span>THE SOLUTION</div>
+<h1 class="slide-title">Retrieval Augmented Generation</h1>
+<div class="content">
+  <div class="grid cols-3">
+    <div class="card fragment c-retrieve" style="border-color:var(--retrieve);"><div class="k" style="color:var(--retrieve);">Retrieval</div><div class="d">Relevant information ko external source se dhoondna.</div></div>
+    <div class="card fragment" style="border-color:var(--chunk);"><div class="k" style="color:var(--chunk);">Augmented</div><div class="d">Us information ko user ki query ke saath jodna.</div></div>
+    <div class="card fragment" style="border-color:var(--gen);"><div class="k" style="color:var(--gen);">Generation</div><div class="d">LLM us enriched context se final answer banata hai.</div></div>
+  </div>
+  <div class="quote-box fragment" style="margin-top:26px;">Query&nbsp; + &nbsp;Relevant External Context&nbsp; + &nbsp;LLM Knowledge&nbsp; → &nbsp;Better Answer</div>
+</div>
+`);
+
+// ---- 7. Analogy ----
+slides.push(`
+<div class="tag"><span class="dot"></span>REAL-LIFE ANALOGY</div>
+<h1 class="slide-title">Closed-book exam vs. open-book exam</h1>
+<div class="content">
+  <div class="two-col">
+    <div class="panel-block fragment">
+      <div class="mono" style="color:var(--muted);font-size:12.5px;">STUDENT 1 — Normal LLM</div>
+      <div class="big-word" style="margin-top:8px;">Closed Book</div>
+      <div style="color:var(--muted);font-size:14px;margin-top:10px;line-height:1.6;">Sab kuch pehle se memorize kiya hua hai. Exam mein sirf apni memory par depend karta hai.</div>
+    </div>
+    <div class="panel-block fragment" style="border-color:var(--retrieve);">
+      <div class="mono" style="color:var(--retrieve);font-size:12.5px;">STUDENT 2 — RAG</div>
+      <div class="big-word" style="margin-top:8px;color:var(--retrieve);">Open Book</div>
+      <div style="color:var(--muted);font-size:14px;margin-top:10px;line-height:1.6;">Yaad na ho toh book open karke relevant page dhoondta hai, verify karta hai, phir answer deta hai.</div>
+    </div>
+  </div>
+  <div class="fragment" style="margin-top:22px;text-align:center;font-family:'Space Grotesk';font-size:17px;color:var(--muted);">Normal LLM = Closed Book &nbsp;·&nbsp; <span style="color:var(--retrieve);">RAG = Open Book</span></div>
+</div>
+`);
+
+// ---- 8. Why RAG matters ----
+slides.push(`
+<div class="tag"><span class="dot"></span>WHY IT'S POPULAR</div>
+<h1 class="slide-title">Five reasons RAG took over</h1>
+<div class="content">
+  <div class="grid cols-3" style="grid-template-rows:1fr 1fr;">
+    <div class="card fragment"><div class="k">Less hallucination</div><div class="d">Grounded, relevant context milta hai.</div></div>
+    <div class="card fragment"><div class="k">Always updated</div><div class="d">Knowledge source ko refresh kiya ja sakta hai.</div></div>
+    <div class="card fragment"><div class="k">Private data ready</div><div class="d">Aapke PDFs, sites, internal docs par kaam karta hai.</div></div>
+    <div class="card fragment"><div class="k">Cost effective</div><div class="d">Har document ke liye retraining nahi chahiye.</div></div>
+    <div class="card fragment"><div class="k">Context-aware</div><div class="d">Query ke saath relevant info bhi milti hai.</div></div>
+  </div>
+</div>
+`);
+
+// ---- 9. Architecture overview ----
+slides.push(`
+<div class="tag"><span class="dot"></span>THE BIG PICTURE</div>
+<h1 class="slide-title">RAG runs on two pipelines</h1>
+<div class="content">
+  <div class="two-col">
+    <div class="panel-block fragment" style="border-color:var(--chunk);text-align:center;">
+      <div class="mono" style="color:var(--chunk);font-size:12.5px;">PIPELINE 1</div>
+      <div class="big-word" style="margin-top:8px;">Data Ingestion</div>
+      <div style="color:var(--muted);font-size:14px;margin-top:10px;">Knowledge ko prepare karta hai — before any question is even asked.</div>
+    </div>
+    <div class="panel-block fragment" style="border-color:var(--retrieve);text-align:center;">
+      <div class="mono" style="color:var(--retrieve);font-size:12.5px;">PIPELINE 2</div>
+      <div class="big-word" style="margin-top:8px;">Retrieval</div>
+      <div style="color:var(--muted);font-size:14px;margin-top:10px;">User ki query aane par relevant knowledge nikalta hai.</div>
+    </div>
+  </div>
+</div>
+`);
+
+// ---- 10. Data ingestion pipeline (animated flow) ----
+slides.push(`
+<div class="tag" style="color:var(--chunk);"><span class="dot" style="background:var(--chunk);"></span>PIPELINE 1 — DATA INGESTION</div>
+<h1 class="slide-title">From raw documents to a searchable knowledge base</h1>
+<div class="content">
+  <div class="flow vertical">
+    <div class="node fragment"><div class="nl">Data Sources</div><div class="ns">PDF · Website · Video · Docs</div></div>
+    <div class="arrow fragment">↓</div>
+    <div class="node fragment"><div class="nl">Extract &amp; Clean</div><div class="ns">remove noise</div></div>
+    <div class="arrow fragment c-chunk">↓</div>
+    <div class="node fragment c-chunk glow"><div class="nl">Chunking</div><div class="ns">split into pieces</div></div>
+    <div class="arrow fragment c-embed">↓</div>
+    <div class="node fragment c-embed glow"><div class="nl">Embedding</div><div class="ns">text → vector</div></div>
+    <div class="arrow fragment c-vector">↓</div>
+    <div class="node fragment c-vector glow"><div class="nl">Vector Database</div><div class="ns">knowledge base ready</div></div>
+  </div>
+</div>
+`);
+
+// ---- 11. Chunking strategies ----
+slides.push(`
+<div class="tag" style="color:var(--chunk);"><span class="dot" style="background:var(--chunk);"></span>ZOOM IN — CHUNKING</div>
+<h1 class="slide-title">Large document ko meaningful pieces mein todna</h1>
+<p class="slide-sub">Good chunking = better retrieval. Poorly made chunks poor results dete hain.</p>
+<div class="content">
+  <div class="grid cols-3">
+    <div class="card fragment" style="border-color:var(--chunk);"><div class="k" style="color:var(--chunk);">Fixed-size</div><div class="d">Har 500 ya 1000 tokens ke baad ek naya chunk.</div></div>
+    <div class="card fragment" style="border-color:var(--chunk);"><div class="k" style="color:var(--chunk);">Hierarchical</div><div class="d">Document → Sections → Paragraphs → Sentences.</div></div>
+    <div class="card fragment" style="border-color:var(--chunk);"><div class="k" style="color:var(--chunk);">Semantic</div><div class="d">Meaning/topic ke basis par — same-topic content ek saath.</div></div>
+  </div>
+</div>
+`);
+
+// ---- 12. Embeddings ----
+slides.push(`
+<div class="tag" style="color:var(--embed);"><span class="dot" style="background:var(--embed);"></span>ZOOM IN — EMBEDDINGS</div>
+<h1 class="slide-title">Turning meaning into numbers</h1>
+<p class="slide-sub">Computer text ka "meaning" search nahi kar sakta — isliye pehle usse numbers mein convert karte hain.</p>
+<div class="content" style="align-items:center;">
+  <div class="fragment panel-block" style="max-width:640px;">"Deadlock occurs when processes wait for resources..."</div>
+  <div class="arrow fragment c-embed" style="margin:4px 0;">↓ embedding model</div>
+  <div class="vec-array fragment">[ 0.12, 0.45, 0.81, 0.22, ... ]</div>
+</div>
+`);
+
+// ---- 13. Vector database ----
+slides.push(`
+<div class="tag" style="color:var(--vector);"><span class="dot" style="background:var(--vector);"></span>ZOOM IN — VECTOR DATABASE</div>
+<h1 class="slide-title">Where chunks, vectors and metadata live together</h1>
+<div class="content">
+  <div class="grid cols-3">
+    <div class="card fragment" style="border-color:var(--vector);"><div class="k" style="color:var(--vector);">Chunk</div><div class="d">Original text piece.</div></div>
+    <div class="card fragment" style="border-color:var(--vector);"><div class="k" style="color:var(--vector);">Embedding</div><div class="d">Us chunk ka vector representation.</div></div>
+    <div class="card fragment" style="border-color:var(--vector);"><div class="k" style="color:var(--vector);">Metadata</div><div class="d">Source, page number, URL, category, timestamp.</div></div>
+  </div>
+  <div class="fragment" style="margin-top:24px;display:flex;gap:10px;justify-content:center;">
+    <span class="pill">ChromaDB</span><span class="pill">FAISS</span><span class="pill">Pinecone</span><span class="pill">Elasticsearch</span>
+  </div>
+</div>
+`);
+
+// ---- 14. Keyword vs semantic search ----
+slides.push(`
+<div class="tag" style="color:var(--vector);"><span class="dot" style="background:var(--vector);"></span>WHY VECTORS, NOT KEYWORDS</div>
+<h1 class="slide-title">Meaning matters more than exact words</h1>
+<div class="content">
+  <div class="two-col">
+    <div class="panel-block fragment">
+      <div class="mono" style="color:var(--muted);font-size:12.5px;">KEYWORD SEARCH</div>
+      <div style="margin-top:10px;font-size:15px;">"heart attack symptoms"</div>
+      <div class="arrow" style="margin:10px 0;">↓</div>
+      <div style="font-size:14px;color:var(--gen);">✕ misses: "cardiac arrest can cause sudden loss of consciousness"</div>
+    </div>
+    <div class="panel-block fragment" style="border-color:var(--retrieve);">
+      <div class="mono" style="color:var(--retrieve);font-size:12.5px;">SEMANTIC SEARCH</div>
+      <div style="margin-top:10px;font-size:15px;">"heart attack symptoms"</div>
+      <div class="arrow c-retrieve" style="margin:10px 0;">↓ meaning</div>
+      <div style="font-size:14px;color:var(--retrieve);">✓ finds: "cardiac arrest can cause sudden loss of consciousness"</div>
+    </div>
+  </div>
+</div>
+`);
+
+// ---- 15. Retrieval pipeline ----
+slides.push(`
+<div class="tag" style="color:var(--retrieve);"><span class="dot" style="background:var(--retrieve);"></span>PIPELINE 2 — RETRIEVAL</div>
+<h1 class="slide-title">What happens the moment a user asks a question</h1>
+<div class="content">
+  <div class="flow vertical">
+    <div class="node fragment"><div class="nl">User Query</div><div class="ns">"Vivek Sir ka deadlock example batao"</div></div>
+    <div class="arrow fragment c-embed">↓</div>
+    <div class="node fragment c-embed glow"><div class="nl">Query Embedding</div><div class="ns">[0.11, 0.48, 0.27, ...]</div></div>
+    <div class="arrow fragment c-retrieve">↓</div>
+    <div class="node fragment c-retrieve glow"><div class="nl">Retriever</div><div class="ns">similarity search</div></div>
+    <div class="arrow fragment c-vector">↓</div>
+    <div class="node fragment c-vector glow"><div class="nl">Vector Database</div><div class="ns">10,000 chunks searched</div></div>
+    <div class="arrow fragment c-retrieve">↓</div>
+    <div class="node fragment c-retrieve glow"><div class="nl">Top Relevant Chunks</div><div class="ns">Chunk 27 · 194 · 782</div></div>
+  </div>
+</div>
+`);
+
+// ---- 16. Augmentation + generation ----
+slides.push(`
+<div class="tag" style="color:var(--gen);"><span class="dot" style="background:var(--gen);"></span>AUGMENTATION → GENERATION</div>
+<h1 class="slide-title">Combine the query with context, then answer</h1>
+<div class="content">
+  <div class="flow">
+    <div class="node fragment"><div class="nl">Original Query</div></div>
+    <div class="fragment" style="font-size:26px;color:var(--muted);margin:0 14px;">+</div>
+    <div class="node fragment c-retrieve"><div class="nl">Retrieved Context</div></div>
+  </div>
+  <div class="arrow fragment" style="text-align:center;margin:14px 0;">↓ augmented prompt</div>
+  <div class="flow">
+    <div class="node fragment glow" style="color:var(--accent);border-color:var(--accent);"><div class="nl">LLM</div></div>
+    <div class="arrow fragment c-gen">→</div>
+    <div class="node fragment c-gen glow"><div class="nl">Final Answer</div></div>
+  </div>
+</div>
+`);
+
+// ---- 17. Complete architecture (finale) ----
+slides.push(`
+<div class="tag"><span class="dot"></span>PUTTING IT ALL TOGETHER</div>
+<h1 class="slide-title" style="font-size:32px;">The complete RAG architecture</h1>
+<div class="content" style="gap:10px;justify-content:center;">
+  <div class="mono fragment" style="font-size:11.5px;color:var(--chunk);text-align:center;">DATA INGESTION</div>
+  <div class="flow fragment">
+    <div class="node c-chunk" style="min-width:110px;padding:10px 14px;"><div class="nl" style="font-size:13px;">Data</div></div>
+    <div class="arrow c-chunk" style="font-size:16px;margin:0 6px;">→</div>
+    <div class="node c-chunk" style="min-width:110px;padding:10px 14px;"><div class="nl" style="font-size:13px;">Clean</div></div>
+    <div class="arrow c-chunk" style="font-size:16px;margin:0 6px;">→</div>
+    <div class="node c-chunk" style="min-width:110px;padding:10px 14px;"><div class="nl" style="font-size:13px;">Chunk</div></div>
+    <div class="arrow c-embed" style="font-size:16px;margin:0 6px;">→</div>
+    <div class="node c-vector glow" style="min-width:130px;padding:10px 14px;"><div class="nl" style="font-size:13px;">Vector DB</div></div>
+  </div>
+  <div class="arrow fragment c-vector" style="text-align:center;font-size:20px;">↕</div>
+  <div class="flow fragment">
+    <div class="node" style="min-width:110px;padding:10px 14px;"><div class="nl" style="font-size:13px;">User Query</div></div>
+    <div class="arrow c-embed" style="font-size:16px;margin:0 6px;">→</div>
+    <div class="node c-retrieve" style="min-width:110px;padding:10px 14px;"><div class="nl" style="font-size:13px;">Retrieve</div></div>
+    <div class="arrow c-retrieve" style="font-size:16px;margin:0 6px;">→</div>
+    <div class="node c-retrieve" style="min-width:110px;padding:10px 14px;"><div class="nl" style="font-size:13px;">Context</div></div>
+    <div class="arrow c-gen" style="font-size:16px;margin:0 6px;">→</div>
+    <div class="node c-gen" style="min-width:110px;padding:10px 14px;"><div class="nl" style="font-size:13px;">Augment</div></div>
+    <div class="arrow c-gen" style="font-size:16px;margin:0 6px;">→</div>
+    <div class="node glow" style="color:var(--accent);border-color:var(--accent);min-width:90px;padding:10px 14px;"><div class="nl" style="font-size:13px;">LLM</div></div>
+    <div class="arrow c-gen" style="font-size:16px;margin:0 6px;">→</div>
+    <div class="node c-gen glow" style="min-width:130px;padding:10px 14px;"><div class="nl" style="font-size:13px;">Final Answer</div></div>
+  </div>
+</div>
+`);
+
+// ---- 18. RAG doesn't train the LLM ----
+slides.push(`
+<div class="tag"><span class="dot"></span>IMPORTANT CLARIFICATION</div>
+<h1 class="slide-title">RAG does NOT retrain the LLM's brain</h1>
+<div class="content">
+  <div class="two-col">
+    <div class="panel-block fragment" style="text-align:center;">
+      <div class="mono" style="color:var(--muted);font-size:12.5px;">LLM's own knowledge</div>
+      <div class="big-word" style="margin-top:10px;">🔒 Student's Memory</div>
+      <div style="color:var(--muted);font-size:14px;margin-top:8px;">Fixed at training time.</div>
+    </div>
+    <div class="panel-block fragment" style="text-align:center;border-color:var(--vector);">
+      <div class="mono" style="color:var(--vector);font-size:12.5px;">Vector database</div>
+      <div class="big-word" style="margin-top:10px;color:var(--vector);">📖 The Open Book</div>
+      <div style="color:var(--muted);font-size:14px;margin-top:8px;">Consulted at runtime — never installed into the brain.</div>
+    </div>
+  </div>
+  <div class="quote-box fragment" style="margin-top:22px;text-align:center;">LLM &nbsp;+&nbsp; External Knowledge &nbsp;→&nbsp; combined only at answer-time</div>
+</div>
+`);
+
+// ---- 19. Real world use cases ----
+slides.push(`
+<div class="tag"><span class="dot"></span>WHERE RAG IS USED</div>
+<h1 class="slide-title">RAG is already running behind the scenes</h1>
+<div class="content">
+  <div class="grid cols-3" style="grid-template-rows:1fr 1fr;">
+    <div class="card fragment"><div class="k">Customer Support</div><div class="d">Product docs se instant answers.</div></div>
+    <div class="card fragment"><div class="k">Medical</div><div class="d">Reports + medical knowledge base.</div></div>
+    <div class="card fragment"><div class="k">Legal</div><div class="d">Large legal documents se relevant clauses.</div></div>
+    <div class="card fragment"><div class="k">Finance</div><div class="d">Internal financial knowledge.</div></div>
+    <div class="card fragment"><div class="k">Education</div><div class="d">Books, notes aur lectures se Q&amp;A.</div></div>
+    <div class="card fragment"><div class="k">Enterprise</div><div class="d">Company documents ke saath AI assistant.</div></div>
+  </div>
+</div>
+`);
+
+// ---- 20. Three things that matter ----
+slides.push(`
+<div class="tag"><span class="dot"></span>WHAT ACTUALLY MATTERS</div>
+<h1 class="slide-title">Three things that decide if your RAG works</h1>
+<div class="content">
+  <div class="grid cols-3">
+    <div class="card fragment" style="border-color:var(--chunk);"><div class="num">01</div><div class="k" style="color:var(--chunk);">Chunking Strategy</div><div class="d">Data ko kaise divide kar rahe ho?</div></div>
+    <div class="card fragment" style="border-color:var(--embed);"><div class="num">02</div><div class="k" style="color:var(--embed);">Embedding Model</div><div class="d">Semantic meaning kaise capture ho raha hai?</div></div>
+    <div class="card fragment" style="border-color:var(--vector);"><div class="num">03</div><div class="k" style="color:var(--vector);">Retrieval Quality</div><div class="d">Relevant info kitni accurately mil rahi hai?</div></div>
+  </div>
+  <div class="quote-box fragment" style="margin-top:24px;text-align:center;">Garbage in → Garbage out</div>
+</div>
+`);
+
+// ---- 21. One-minute revision ----
+slides.push(`
+<div class="tag"><span class="dot"></span>INTERVIEW-READY ANSWER</div>
+<h1 class="slide-title">If someone asks: "What is RAG?"</h1>
+<div class="content" style="justify-content:center;">
+  <div class="quote-box fragment" style="font-size:21px;">RAG is a technique where relevant information is retrieved from an external knowledge source and added to the user's query before sending it to an LLM — allowing it to generate a more context-aware, grounded response.</div>
+</div>
+`);
+
+// ---- 22. Conclusion / CTA ----
+slides.push(`
+<div class="tag"><span class="dot"></span>THAT'S A WRAP</div>
+<h1 class="slide-title">RAG doesn't replace the LLM — it informs it</h1>
+<div class="content">
+  <div class="quote-box fragment" style="text-align:center;font-size:24px;">LLM &nbsp;+&nbsp; Relevant External Knowledge &nbsp;=&nbsp; RAG</div>
+  <div class="fragment" style="margin-top:28px;text-align:center;font-size:16px;color:var(--muted);">Next video: complete <span style="color:var(--ink);">Python implementation</span> — PDF upload se Chunking → Embeddings → Vector Database → Retrieval → LLM tak. Comment karke batana!</div>
+  <div class="fragment" style="margin-top:26px;text-align:center;font-family:'Space Grotesk';font-size:20px;font-weight:600;">👍 Like &nbsp;·&nbsp; 🔔 Subscribe &nbsp;·&nbsp; 📤 Share</div>
+</div>
+`);
+
+// ============================================================
+// ENGINE
+// ============================================================
+const slidesEl = document.getElementById('slides');
+slides.forEach((html, i) => {
+  const div = document.createElement('div');
+  div.className = 'slide';
+  div.innerHTML = html;
+  div.dataset.index = i;
+  slidesEl.appendChild(div);
+});
+const slideEls = Array.from(document.querySelectorAll('.slide'));
+const dotsEl = document.getElementById('dots');
+slideEls.forEach((_, i) => {
+  const d = document.createElement('span');
+  dotsEl.appendChild(d);
+});
+const dotEls = Array.from(dotsEl.children);
+
+let current = 0;
+let fragIndex = -1; // -1 = no fragments shown yet
+
+function getFragments(slide){ return Array.from(slide.querySelectorAll('.fragment')); }
+
+function showSlide(i, resetFrag=true){
+  slideEls.forEach((s, idx) => s.classList.toggle('active', idx === i));
+  dotEls.forEach((d, idx) => d.classList.toggle('on', idx === i));
+  current = i;
+  if(resetFrag){
+    fragIndex = -1;
+    const frags = getFragments(slideEls[current]);
+    frags.forEach(f => f.classList.remove('visible'));
+  }
+}
+
+function advance(){
+  const frags = getFragments(slideEls[current]);
+  if(fragIndex < frags.length - 1){
+    fragIndex++;
+    frags[fragIndex].classList.add('visible');
+  } else if(current < slideEls.length - 1){
+    showSlide(current + 1);
+  }
+}
+
+function goBack(){
+  const frags = getFragments(slideEls[current]);
+  if(fragIndex >= 0){
+    frags[fragIndex].classList.remove('visible');
+    fragIndex--;
+  } else if(current > 0){
+    showSlide(current - 1, false);
+    const prevFrags = getFragments(slideEls[current]);
+    prevFrags.forEach(f => f.classList.add('visible'));
+    fragIndex = prevFrags.length - 1;
+  }
+}
+
+document.getElementById('nextBtn').addEventListener('click', e => { e.stopPropagation(); advance(); });
+document.getElementById('prevBtn').addEventListener('click', e => { e.stopPropagation(); goBack(); });
+document.getElementById('viewport').addEventListener('click', (e) => {
+  if(e.target.closest('#chrome')) return;
+  advance();
+});
+document.addEventListener('keydown', (e) => {
+  if(['ArrowRight','ArrowDown',' ','PageDown'].includes(e.key)){ e.preventDefault(); advance(); }
+  if(['ArrowLeft','ArrowUp','PageUp'].includes(e.key)){ e.preventDefault(); goBack(); }
+});
+
+showSlide(0);
+
+// ---- responsive scaling of fixed 1280x720 stage ----
+function scaleStage(){
+  const vp = document.getElementById('viewport');
+  const scale = Math.min(window.innerWidth / 1280, window.innerHeight / 720) * 0.96;
+  vp.style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', scaleStage);
+scaleStage();
+</script>
+</body>
+</html>
