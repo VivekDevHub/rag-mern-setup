@@ -17,11 +17,7 @@ fs = File System
 
 Node.js ka built-in module hai jisse hum files ke saath kaam kar sakte hain.
 
-fs/promises use karne se hum:
-
-await fs.readFile(...)
-
-jaisi async operations kar sakte hain.
+fs/promises use karne se hum: await fs.readFile(...) jaisi async operations kar sakte hain.
 
 
 
@@ -95,7 +91,7 @@ ab text data ko nearly 300 characters par break krunga
 langchain text splitters we use (RecursiveCharacterTextSplitter)
  https://docs.langchain.com/oss/python/integrations/splitters
 
-install packages : npm install langchain @langchain/textsplitters  @langchain/cor
+install packages : npm install langchain @langchain/textsplitters  @langchain/core
 
 
 const splitter = new RecursiveCharacterTextSplitter({
@@ -117,8 +113,37 @@ embedding models me pass karke convert karna hai
 npm i @langchain/mistralai
 https://docs.langchain.com/oss/javascript/deepagents/rag#mistralai
 
+
 const embeddings = new MistralAIEmbeddings({
-  model: "mistral-embed"
+  model: "mistral-embed",
+  apiKey:process.env.MISTRAL_API_KEY
 });
+
+const vectors = await embeddings.embedDocuments(parts);
+
+
+const vectorsData = vectors.map((vector,index) => ({
+  text:parts[index],
+  vector:vector
+}))
+
+console.log(vectorsData);
+yeh apne array form me vectors dikhenge embedding dikhenge or isko store karenge database me or inki range rehti hai 0 se -1 ke beech me
+
+isme text or embeddings dono dikh jayenge console me
+
+=============================================================
+
+VECTOR DATABSE
+embeddings vectors ko database me store karna hai
+yaha par hum pinecone database use karenge
+
+pinecone ek database hoga isme honge indexes or in indexes ko collection ki tarah rakh sakte ho  create new index kroge toh dimension me aapko btana padhega mere ek array me 1024 embeddings hai toh dimension me likhna 1024
+
+1. pinecone database signin kro
+2. create index par click kro then custom setting me jao
+3. dimension me likho ek array me kitni digits ex=1024
+4. create index pr click karo last me toh index create ho jayegaa
+5. 
 
 
