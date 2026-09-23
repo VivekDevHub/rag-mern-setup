@@ -2,7 +2,10 @@ import { PDFParse } from "pdf-parse";
 import fs from 'fs/promises';
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { MistralAIEmbeddings } from "@langchain/mistralai";
+import { configDotenv } from "dotenv";
+import { index } from "@langchain/core/indexing";
 
+configDotenv();
 
 const fileBuffer = await fs.readFile("./story.pdf")
 
@@ -20,5 +23,15 @@ const splitter = new RecursiveCharacterTextSplitter({
 const parts = await splitter.splitText(`${data.text}`)
 
 const embeddings = new MistralAIEmbeddings({
-  model: "mistral-embed"
+  model: "mistral-embed",
+  apiKey:process.env.MISTRAL_API_KEY
 });
+
+const vectors = await embeddings.embedDocuments(parts);
+
+const vectorsData = vectors.map((vector,index) => ({
+  text:parts[index],
+  vector:vector
+}))
+
+console.log(vectorsData);
