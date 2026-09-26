@@ -144,6 +144,30 @@ pinecone ek database hoga isme honge indexes or in indexes ko collection ki tara
 2. create index par click kro then custom setting me jao
 3. dimension me likho ek array me kitni digits ex=1024
 4. create index pr click karo last me toh index create ho jayegaa
-5. 
+5. manage key me jake new api key create karke dotnev me paste kardo
+
+Install - npm install @pinecone-database/pinecone
+const pc = new Pinecone({ apiKey:process.env.PINECONE_API_KEY });
+
+const indexes = pc.Index("new-rag")
+
+const vectorsStored = await indexes.upsert({
+  records:vectorsData.map((vec) => {
+     return {
+         id: `${Math.random()*100000000000}`,
+         metadata:{
+          text:vec.text
+         },
+         values:vec.vector
+     }
+  }),
+})
+
+
+console.log(vectorsStored);
+
+====================================STAGE-2=============================================
+
+
 
 
